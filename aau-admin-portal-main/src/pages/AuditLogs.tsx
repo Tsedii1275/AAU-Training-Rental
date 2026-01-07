@@ -1,7 +1,8 @@
+import { useState, useMemo } from "react";
 import { PageHeader } from "@/components/common/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Search, Download, Calendar, Clock, User2, FileText } from "lucide-react";
+import { Search, Download, Calendar, Clock, User2, FileText, X } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -19,6 +20,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
+import { useToast } from "@/hooks/use-toast";
 
 const mockLogs = [
   {
@@ -124,15 +126,87 @@ const getActionColor = (action: string) => {
 };
 
 export default function AuditLogs() {
+  const { toast } = useToast();
+  const [searchQuery, setSearchQuery] = useState("");
+  const [userFilter, setUserFilter] = useState("all");
+  const [actionFilter, setActionFilter] = useState("all");
+
+  // Get unique users from logs for the filter dropdown
+  const uniqueUsers = useMemo(() => {
+    const users = new Set(mockLogs.map(log => log.user));
+    return Array.from(users).sort();
+  }, []);
+
+  // Filter logs based on search query and dropdown filters
+  const filteredLogs = useMemo(() => {
+    return mockLogs.filter((log) => {
+      const matchesSearch =
+        log.user.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        log.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        log.resource.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        log.role.toLowerCase().includes(searchQuery.toLowerCase());
+
+      const matchesUser = userFilter === "all" || log.user === userFilter;
+      const matchesAction = actionFilter === "all" || log.action === actionFilter.toUpperCase();
+
+      return matchesSearch && matchesUser && matchesAction;
+    });
+  }, [searchQuery, userFilter, actionFilter]);
+
+  const handleExport = () => {
+    const logsToExport = filteredLogs;
+    try {
+      // Define CSV headers
+      const headers = ["ID", "Timestamp", "User", "Role", "Action", "Resource", "Description", "IP Address"];
+
+      // Convert logs to CSV rows
+      const csvContent = [
+        headers.join(","),
+        ...logsToExport.map(log => [
+          log.id,
+          `"${log.timestamp}"`,
+          `"${log.user}"`,
+          `"${log.role}"`,
+          `"${log.action}"`,
+          `"${log.resource}"`,
+          `"${log.description}"`,
+          `"${log.ip}"`
+        ].join(","))
+      ].join("\n");
+
+      // Create blob and download
+      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      link.setAttribute("download", `aau_audit_logs_${new Date().toISOString().split('T')[0]}.csv`);
+      link.style.visibility = "hidden";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      toast({
+        title: "Export Successful",
+        description: `Exported ${logsToExport.length} logs to CSV format.`,
+      });
+    } catch (error) {
+      toast({
+        title: "Export Failed",
+        description: "There was an error exporting the logs. Please try again.",
+        variant: "destructive"
+      });
+    }
+  };
+
   return (
     <div className="space-y-6 animate-fade-in">
       <PageHeader
         title="Audit Logs"
         description="View system activity and user actions (read-only)"
         actions={
-          <Button variant="outline">
+          <Button variant="outline" onClick={handleExport}>
             <Download className="mr-2 h-4 w-4" />
-            Export Logs
+            Export Filtered Logs
           </Button>
         }
       />
@@ -146,8 +220,8 @@ export default function AuditLogs() {
                 <FileText className="h-5 w-5 text-primary" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-foreground">{mockLogs.length}</p>
-                <p className="text-xs text-muted-foreground">Total Logs Today</p>
+                <p className="text-2xl font-bold text-foreground">{filteredLogs.length}</p>
+                <p className="text-xs text-muted-foreground">Showing Result</p>
               </div>
             </div>
           </CardContent>
@@ -160,7 +234,7 @@ export default function AuditLogs() {
               </div>
               <div>
                 <p className="text-2xl font-bold text-foreground">{mockLogs.filter(l => l.action === "CREATE").length}</p>
-                <p className="text-xs text-muted-foreground">Create Actions</p>
+                <p className="text-xs text-muted-foreground">Total Create</p>
               </div>
             </div>
           </CardContent>
@@ -173,7 +247,7 @@ export default function AuditLogs() {
               </div>
               <div>
                 <p className="text-2xl font-bold text-foreground">{mockLogs.filter(l => l.action === "UPDATE").length}</p>
-                <p className="text-xs text-muted-foreground">Update Actions</p>
+                <p className="text-xs text-muted-foreground">Total Update</p>
               </div>
             </div>
           </CardContent>
@@ -186,7 +260,7 @@ export default function AuditLogs() {
               </div>
               <div>
                 <p className="text-2xl font-bold text-foreground">{mockLogs.filter(l => l.action === "DELETE").length}</p>
-                <p className="text-xs text-muted-foreground">Delete Actions</p>
+                <p className="text-xs text-muted-foreground">Total Delete</p>
               </div>
             </div>
           </CardContent>
@@ -197,21 +271,29 @@ export default function AuditLogs() {
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input placeholder="Search logs..." className="pl-9" />
+          <Input
+            placeholder="Search logs by user, action or description..."
+            className="pl-9"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
         </div>
         <div className="flex gap-2">
-          <Select>
-            <SelectTrigger className="w-[140px]">
-              <User2 className="h-4 w-4 mr-2" />
-              <SelectValue placeholder="User" />
+          <Select value={userFilter} onValueChange={setUserFilter}>
+            <SelectTrigger className="w-[160px]">
+              <div className="flex items-center gap-2">
+                <User2 className="h-4 w-4" />
+                <SelectValue placeholder="User" />
+              </div>
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Users</SelectItem>
-              <SelectItem value="admin">Admin</SelectItem>
-              <SelectItem value="system">System</SelectItem>
+              {uniqueUsers.map(user => (
+                <SelectItem key={user} value={user}>{user}</SelectItem>
+              ))}
             </SelectContent>
           </Select>
-          <Select>
+          <Select value={actionFilter} onValueChange={setActionFilter}>
             <SelectTrigger className="w-[140px]">
               <SelectValue placeholder="Action" />
             </SelectTrigger>
@@ -223,10 +305,21 @@ export default function AuditLogs() {
               <SelectItem value="view">View</SelectItem>
             </SelectContent>
           </Select>
-          <Button variant="outline">
-            <Calendar className="h-4 w-4 mr-2" />
-            Date Range
-          </Button>
+          {(searchQuery || userFilter !== "all" || actionFilter !== "all") && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setSearchQuery("");
+                setUserFilter("all");
+                setActionFilter("all");
+              }}
+              className="text-muted-foreground"
+            >
+              <X className="h-4 w-4 mr-1" />
+              Clear
+            </Button>
+          )}
         </div>
       </div>
 
@@ -250,42 +343,52 @@ export default function AuditLogs() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {mockLogs.map((log) => (
-              <TableRow key={log.id} className="hover:bg-muted/30">
-                <TableCell className="font-mono text-xs text-muted-foreground">
-                  {log.timestamp}
-                </TableCell>
-                <TableCell className="font-medium">{log.user}</TableCell>
-                <TableCell>
-                  <Badge variant="outline" className="text-xs">
-                    {log.role}
-                  </Badge>
-                </TableCell>
-                <TableCell>
-                  <div className="flex items-center gap-2">
-                    <div className={`h-2 w-2 rounded-full ${getActionColor(log.action)}`} />
-                    <Badge variant={getActionBadgeVariant(log.action)}>
-                      {log.action}
+            {filteredLogs.length > 0 ? (
+              filteredLogs.map((log) => (
+                <TableRow key={log.id} className="hover:bg-muted/30">
+                  <TableCell className="font-mono text-xs text-muted-foreground">
+                    {log.timestamp}
+                  </TableCell>
+                  <TableCell className="font-medium">{log.user}</TableCell>
+                  <TableCell>
+                    <Badge variant="outline" className="text-xs">
+                      {log.role}
                     </Badge>
-                  </div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      <div className={`h-2 w-2 rounded-full ${getActionColor(log.action)}`} />
+                      <Badge variant={getActionBadgeVariant(log.action)}>
+                        {log.action}
+                      </Badge>
+                    </div>
+                  </TableCell>
+                  <TableCell>{log.resource}</TableCell>
+                  <TableCell className="max-w-[250px] truncate text-muted-foreground">
+                    {log.description}
+                  </TableCell>
+                  <TableCell className="font-mono text-xs text-muted-foreground">{log.ip}</TableCell>
+                </TableRow>
+              ))
+            ) : (
+              <TableRow>
+                <TableCell colSpan={7} className="h-24 text-center text-muted-foreground">
+                  No logs matching your filters.
                 </TableCell>
-                <TableCell>{log.resource}</TableCell>
-                <TableCell className="max-w-[250px] truncate text-muted-foreground">
-                  {log.description}
-                </TableCell>
-                <TableCell className="font-mono text-xs text-muted-foreground">{log.ip}</TableCell>
               </TableRow>
-            ))}
+            )}
           </TableBody>
         </Table>
       </div>
 
       {/* Pagination placeholder */}
       <div className="flex items-center justify-between">
-        <p className="text-sm text-muted-foreground">Showing 1-7 of 328 logs</p>
+        <p className="text-sm text-muted-foreground">
+          Showing {filteredLogs.length} of {mockLogs.length} logs
+        </p>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" disabled>Previous</Button>
-          <Button variant="outline" size="sm">Next</Button>
+          <Button variant="outline" size="sm" disabled={filteredLogs.length === mockLogs.length}>Next</Button>
         </div>
       </div>
     </div>

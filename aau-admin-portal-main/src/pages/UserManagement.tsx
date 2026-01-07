@@ -99,6 +99,10 @@ export default function UserManagement() {
   const [statusChangeUser, setStatusChangeUser] = useState<User | null>(null);
   const [tempPassword, setTempPassword] = useState<string>("");
 
+  const [searchQuery, setSearchQuery] = useState("");
+  const [roleFilter, setRoleFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
+
   const { toast } = useToast();
   const { data: usersData, isLoading: isLoadingUsers } = useUsers();
   const createUserMutation = useCreateUser();
@@ -108,6 +112,27 @@ export default function UserManagement() {
 
   // Use API data if available, otherwise fallback to mock data
   const users = usersData || mockUsers;
+
+  // Filter users based on search query and dropdown filters
+  const filteredUsers = users.filter((user) => {
+    const matchesSearch =
+      user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      user.email.toLowerCase().includes(searchQuery.toLowerCase());
+
+    // Check role - handle both "ICT Admin" style and slug styles
+    const matchesRole = roleFilter === "all" ||
+      user.role.toLowerCase().includes(roleFilter.toLowerCase()) ||
+      (roleFilter === "ict" && user.role.toLowerCase().includes("ict")) ||
+      (roleFilter === "campus" && user.role.toLowerCase().includes("campus")) ||
+      (roleFilter === "training" && user.role.toLowerCase().includes("training")) ||
+      (roleFilter === "rental" && user.role.toLowerCase().includes("rental")) ||
+      (roleFilter === "finance" && user.role.toLowerCase().includes("finance")) ||
+      (roleFilter === "auditor" && user.role.toLowerCase().includes("auditor"));
+
+    const matchesStatus = statusFilter === "all" || user.status.toLowerCase() === statusFilter.toLowerCase();
+
+    return matchesSearch && matchesRole && matchesStatus;
+  });
 
   const form = useForm<UserFormData>({
     defaultValues: {
@@ -305,10 +330,15 @@ export default function UserManagement() {
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input placeholder="Search users by name or email..." className="pl-9" />
+          <Input
+            placeholder="Search users by name or email..."
+            className="pl-9"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
         </div>
         <div className="flex gap-2">
-          <Select>
+          <Select value={roleFilter} onValueChange={setRoleFilter}>
             <SelectTrigger className="w-[180px]">
               <SelectValue placeholder="Filter by Role" />
             </SelectTrigger>
@@ -322,7 +352,7 @@ export default function UserManagement() {
               <SelectItem value="auditor">Auditor</SelectItem>
             </SelectContent>
           </Select>
-          <Select>
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
             <SelectTrigger className="w-[140px]">
               <SelectValue placeholder="Status" />
             </SelectTrigger>
@@ -332,10 +362,24 @@ export default function UserManagement() {
               <SelectItem value="inactive">Inactive</SelectItem>
             </SelectContent>
           </Select>
-          <Button variant="outline" size="icon">
-            <Filter className="h-4 w-4" />
-          </Button>
+          {(searchQuery || roleFilter !== "all" || statusFilter !== "all") && (
+            <Button
+              variant="ghost"
+              className="text-muted-foreground hover:text-foreground px-2"
+              onClick={() => {
+                setSearchQuery("");
+                setRoleFilter("all");
+                setStatusFilter("all");
+              }}
+            >
+              Clear
+            </Button>
+          )}
         </div>
+      </div>
+
+      <div className="flex items-center justify-between text-sm text-muted-foreground px-1">
+        <p>Showing {filteredUsers.length} of {users.length} users</p>
       </div>
 
       {/* Users Table */}
@@ -351,64 +395,84 @@ export default function UserManagement() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {mockUsers.map((user) => (
-              <TableRow key={user.id} className="hover:bg-muted/30">
-                <TableCell>
-                  <div className="flex items-center gap-3">
-                    <Avatar className="h-9 w-9 border border-border">
-                      <AvatarFallback className="bg-primary/10 text-primary text-sm font-medium">
-                        {user.avatar || getInitials(user.name)}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div>
-                      <p className="font-medium text-foreground">{user.name}</p>
-                      <p className="text-xs text-muted-foreground">{user.email}</p>
+            {filteredUsers.length > 0 ? (
+              filteredUsers.map((user) => (
+                <TableRow key={user.id} className="hover:bg-muted/30">
+                  <TableCell>
+                    <div className="flex items-center gap-3">
+                      <Avatar className="h-9 w-9 border border-border">
+                        <AvatarFallback className="bg-primary/10 text-primary text-sm font-medium">
+                          {user.avatar || getInitials(user.name)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <p className="font-medium text-foreground">{user.name}</p>
+                        <p className="text-xs text-muted-foreground">{user.email}</p>
+                      </div>
                     </div>
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant="secondary" className="font-normal">
+                      {user.role}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">{user.campus}</TableCell>
+                  <TableCell>
+                    <Badge
+                      variant={user.status === "Active" ? "default" : "outline"}
+                      className={user.status === "Active" ? "" : "text-muted-foreground"}
+                    >
+                      {user.status}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => handleEditUser(user)}>
+                          <Edit className="mr-2 h-4 w-4" />
+                          Edit User
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleResetPassword(user)}>
+                          <KeyRound className="mr-2 h-4 w-4" />
+                          Reset Password
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          className="text-destructive focus:text-destructive"
+                          onClick={() => handleStatusChange(user)}
+                        >
+                          <UserX className="mr-2 h-4 w-4" />
+                          {user.status === "Active" ? "Deactivate" : "Activate"}
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </TableCell>
+                </TableRow>
+              ))
+            ) : (
+              <TableRow>
+                <TableCell colSpan={5} className="h-24 text-center">
+                  <div className="flex flex-col items-center justify-center text-muted-foreground">
+                    <p>No users found matching your search</p>
+                    <Button
+                      variant="link"
+                      onClick={() => {
+                        setSearchQuery("");
+                        setRoleFilter("all");
+                        setStatusFilter("all");
+                      }}
+                    >
+                      Clear all filters
+                    </Button>
                   </div>
                 </TableCell>
-                <TableCell>
-                  <Badge variant="secondary" className="font-normal">
-                    {user.role}
-                  </Badge>
-                </TableCell>
-                <TableCell className="text-muted-foreground">{user.campus}</TableCell>
-                <TableCell>
-                  <Badge
-                    variant={user.status === "Active" ? "default" : "outline"}
-                    className={user.status === "Active" ? "" : "text-muted-foreground"}
-                  >
-                    {user.status}
-                  </Badge>
-                </TableCell>
-                <TableCell className="text-right">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-8 w-8">
-                        <MoreHorizontal className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => handleEditUser(user)}>
-                        <Edit className="mr-2 h-4 w-4" />
-                        Edit User
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => handleResetPassword(user)}>
-                        <KeyRound className="mr-2 h-4 w-4" />
-                        Reset Password
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem
-                        className="text-destructive focus:text-destructive"
-                        onClick={() => handleStatusChange(user)}
-                      >
-                        <UserX className="mr-2 h-4 w-4" />
-                        {user.status === "Active" ? "Deactivate" : "Activate"}
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </TableCell>
               </TableRow>
-            ))}
+            )}
           </TableBody>
         </Table>
       </div>

@@ -26,6 +26,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
+import { useProfile } from "@/hooks/useAuthApi";
 import aauLogo from "@/assets/aau-logo.png";
 
 interface TopBarProps {
@@ -37,7 +38,19 @@ interface TopBarProps {
 export function TopBar({ sidebarCollapsed = false, onMenuClick, showMenuButton = false }: TopBarProps) {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { data: profile } = useProfile();
   const [notificationsDialogOpen, setNotificationsDialogOpen] = useState(false);
+
+  // Get user initials for avatar
+  const getInitials = (name: string) => {
+    if (!name) return "SA";
+    return name
+      .split(" ")
+      .map((n) => n[0])
+      .join("")
+      .toUpperCase()
+      .slice(0, 2);
+  };
 
   // All notifications (you can expand this list)
   const allNotifications = [
@@ -131,9 +144,8 @@ export function TopBar({ sidebarCollapsed = false, onMenuClick, showMenuButton =
 
   return (
     <header
-      className={`fixed right-0 top-0 z-30 flex h-16 items-center justify-between border-b border-border bg-card px-4 md:px-6 shadow-sm transition-all duration-300 ${
-        showMenuButton ? "left-0" : (sidebarCollapsed ? "left-16" : "left-64")
-      }`}
+      className={`fixed right-0 top-0 z-30 flex h-16 items-center justify-between border-b border-border bg-card px-4 md:px-6 shadow-sm transition-all duration-300 ${showMenuButton ? "left-0" : (sidebarCollapsed ? "left-16" : "left-64")
+        }`}
     >
       {/* Left Section - Mobile Menu & Title */}
       <div className="flex items-center gap-3">
@@ -143,7 +155,7 @@ export function TopBar({ sidebarCollapsed = false, onMenuClick, showMenuButton =
             <Menu className="h-5 w-5" />
           </Button>
         )}
-        
+
         <div className="hidden md:flex items-center gap-3">
           <img src={aauLogo} alt="AAU" className="h-8 w-8 object-contain" />
           <div className="h-8 w-px bg-border" />
@@ -228,8 +240,8 @@ export function TopBar({ sidebarCollapsed = false, onMenuClick, showMenuButton =
               ))}
             </div>
             <div className="border-t p-2">
-              <Button 
-                variant="ghost" 
+              <Button
+                variant="ghost"
                 className="w-full justify-center text-sm text-aau-red hover:text-aau-red hover:bg-aau-red/10"
                 onClick={handleViewAllNotifications}
               >
@@ -253,7 +265,7 @@ export function TopBar({ sidebarCollapsed = false, onMenuClick, showMenuButton =
                 View and manage all your system notifications
               </DialogDescription>
             </DialogHeader>
-            
+
             <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
               {allNotifications.map((notification, index) => (
                 <div key={notification.id}>
@@ -277,8 +289,8 @@ export function TopBar({ sidebarCollapsed = false, onMenuClick, showMenuButton =
                         <span className="text-xs text-muted-foreground">
                           {notification.time}
                         </span>
-                        <Badge 
-                          variant="outline" 
+                        <Badge
+                          variant="outline"
                           className="text-xs"
                         >
                           {notification.type}
@@ -321,15 +333,15 @@ export function TopBar({ sidebarCollapsed = false, onMenuClick, showMenuButton =
             <Button variant="ghost" className="flex items-center gap-2 px-2 hover:bg-secondary">
               <Avatar className="h-8 w-8 border-2 border-primary/20">
                 <AvatarFallback className="bg-primary text-primary-foreground text-sm font-semibold">
-                  SA
+                  {getInitials(profile?.name || "System Admin")}
                 </AvatarFallback>
               </Avatar>
               <div className="hidden flex-col items-start md:flex">
                 <span className="text-sm font-medium text-foreground">
-                  System Admin
+                  {profile?.name || "System Admin"}
                 </span>
                 <span className="text-xs text-muted-foreground">
-                  ICT Department
+                  {profile?.department || "ICT Department"}
                 </span>
               </div>
               <ChevronDown className="h-4 w-4 text-muted-foreground" />
@@ -338,8 +350,8 @@ export function TopBar({ sidebarCollapsed = false, onMenuClick, showMenuButton =
           <DropdownMenuContent align="end" className="w-56">
             <DropdownMenuLabel className="font-normal">
               <div className="flex flex-col space-y-1">
-                <p className="text-sm font-medium">System Administrator</p>
-                <p className="text-xs text-muted-foreground">admin@aau.edu.et</p>
+                <p className="text-sm font-medium">{profile?.name || "System Administrator"}</p>
+                <p className="text-xs text-muted-foreground">{profile?.email || "admin@aau.edu.et"}</p>
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
@@ -356,19 +368,19 @@ export function TopBar({ sidebarCollapsed = false, onMenuClick, showMenuButton =
               Help & Support
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem 
+            <DropdownMenuItem
               className="text-destructive focus:text-destructive focus:bg-destructive/10"
               onClick={() => {
                 // Clear JWT token and session data
                 localStorage.removeItem("token");
                 sessionStorage.clear();
-                
+
                 // Show success toast
                 toast({
                   title: "Signed out successfully",
                   description: "You have been logged out of your account",
                 });
-                
+
                 // Redirect to login page (or home page if no login exists)
                 // For now, redirect to home - you can change this to /login if you have a login page
                 setTimeout(() => {

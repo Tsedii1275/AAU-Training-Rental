@@ -13,7 +13,7 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { Loader2, Save, User as UserIcon, Mail, Shield, Building2 } from "lucide-react";
+import { Loader2, Save, RefreshCw, User as UserIcon, Mail, Shield, Building2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useProfile, useUpdateProfile, type UpdateProfileRequest } from "@/hooks/useAuthApi";
 
@@ -192,17 +192,44 @@ export default function MyProfile() {
                   )}
                 />
 
-                <div className="flex justify-end pt-4 border-t">
+
+                <div className="flex justify-end gap-3 pt-4 border-t">
                   <Button
-                    type="submit"
-                    className="bg-aau-gradient hover:opacity-90"
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      if (profile) {
+                        form.reset({
+                          name: profile.name || "",
+                          department: profile.department || "",
+                        });
+                        toast({
+                          title: "Form Reset",
+                          description: "Changes have been reverted to your current profile data.",
+                        });
+                      }
+                    }}
                     disabled={updateProfileMutation.isPending}
                   >
-                    {updateProfileMutation.isPending && (
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    <RefreshCw className="mr-2 h-4 w-4" />
+                    Reset
+                  </Button>
+                  <Button
+                    type="submit"
+                    className="bg-aau-gradient hover:opacity-90 min-w-[140px]"
+                    disabled={updateProfileMutation.isPending}
+                  >
+                    {updateProfileMutation.isPending ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Saving...
+                      </>
+                    ) : (
+                      <>
+                        <Save className="mr-2 h-4 w-4" />
+                        Save Changes
+                      </>
                     )}
-                    <Save className="mr-2 h-4 w-4" />
-                    {updateProfileMutation.isPending ? "Saving..." : "Save Changes"}
                   </Button>
                 </div>
               </form>

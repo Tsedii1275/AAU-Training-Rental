@@ -12,17 +12,18 @@ export function MainLayout() {
 
   return (
     <div className="min-h-screen bg-background">
-      <Sidebar 
-        collapsed={sidebarCollapsed} 
+      <Sidebar
+        collapsed={sidebarCollapsed}
         setCollapsed={setSidebarCollapsed}
         mobileOpen={mobileOpen}
         setMobileOpen={setMobileOpen}
       />
-      <TopBar 
-        onMenuClick={() => setMobileOpen(true)} 
+      <TopBar
+        sidebarCollapsed={sidebarCollapsed}
+        onMenuClick={() => setMobileOpen(true)}
         showMenuButton={isMobile}
       />
-      <main 
+      <main
         className={cn(
           "pt-16 transition-all duration-300",
           !isMobile && (sidebarCollapsed ? "ml-16" : "ml-64"),
