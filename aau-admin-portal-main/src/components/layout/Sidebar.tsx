@@ -71,7 +71,7 @@ export function Sidebar({ collapsed, setCollapsed, mobileOpen, setMobileOpen }: 
     <>
       {/* Mobile Overlay */}
       {isMobile && mobileOpen && (
-        <div 
+        <div
           className="fixed inset-0 z-40 bg-black/50 transition-opacity"
           onClick={() => setMobileOpen(false)}
         />
@@ -105,7 +105,7 @@ export function Sidebar({ collapsed, setCollapsed, mobileOpen, setMobileOpen }: 
             <div className="flex items-center gap-3">
               <img src={aauLogo} alt="AAU Logo" className="h-12 w-12 object-contain" />
               <div className="flex flex-col">
-                <span className="text-xs font-medium text-sidebar-foreground/70">
+                <span className="text-xs font-semibold text-aau-red">
                   አዲስ አበባ ዩኒቨርሲቲ
                 </span>
                 <span className="text-sm font-bold text-sidebar-foreground">

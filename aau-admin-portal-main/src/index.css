@@ -214,6 +214,11 @@
     @apply bg-card rounded-lg border border-border shadow-sm border-l-4 border-l-primary;
   }
 
+  /* AAU Card with red left border accent */
+  .aau-card-red {
+    @apply bg-card rounded-lg border border-border shadow-sm border-l-4 border-l-aau-red;
+  }
+
   /* AAU Gold accent */
   .aau-gold-accent {
     @apply border-l-4;
